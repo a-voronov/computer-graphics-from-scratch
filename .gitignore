@@ -1,0 +1,19 @@
+# General
+.DS_Store
+
+# Generated files
+bin/
+gen/
+out/
+build/
+*.dSYM
+
+# Log Files
+*.log
+
+# VSCode
+.vscode/*
+
+# Vim
+*~
+[._]*.un~
