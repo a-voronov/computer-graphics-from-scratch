@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -29,7 +31,11 @@ struct BMPInfoHeader {
 
 #pragma pack(pop)
 
-bool save_image(const uint8_t image[][3], int32_t width, int32_t height, const string& filename) {
+struct Color {
+    uint8_t red, green, blue;
+};
+
+bool save_image(const vector<Color>& image, int32_t width, int32_t height, const string& filename) {
     if (width % 4 != 0) {
         cout << "Image width should be aligned to a multiple of 4" << endl;
         return false;
@@ -56,11 +62,11 @@ bool save_image(const uint8_t image[][3], int32_t width, int32_t height, const s
 
     for (int32_t y = height - 1; y >= 0; y--) {
         for (int32_t x = 0; x < width; x++) {
-            const uint8_t* rgb = image[y * width + x];
+            const Color rgb = image[y * width + x];
             // converting RGB image to BGR for bmp file format
-            file.put(rgb[2]);
-            file.put(rgb[1]);
-            file.put(rgb[0]);
+            file.put(rgb.blue);
+            file.put(rgb.green);
+            file.put(rgb.red);
         }
     }
     file.close();

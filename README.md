@@ -1,6 +1,6 @@
 # Computer Graphics from Scratch
 
-C++ implementation of [Computer Graphics from Scratch](https://gabrielgambetta.com/computer-graphics-from-scratch/) book.
+C++ implementation of [Computer Graphics from Scratch](https://gabrielgambetta.com/computer-graphics-from-scratch/) book for self-studying purposes.
 
 The book is using JavaScript and HTML Canvas to implement logic and display results.
 It seems to me that the easiest implementation in C++ without using any libraries, is to render results into the bmp files.
@@ -8,9 +8,9 @@ It seems to me that the easiest implementation in C++ without using any librarie
 ## Run Examples
 
 ```
-mkdir -p bin gen
+mkdir -p bin results
 
 clang++ -std=c++17 examples/<example>.cc -o bin/<example>
 
-bin/<example> && open gen/<example>.bmp
+bin/<example> && open results/<example>.bmp
 ```
