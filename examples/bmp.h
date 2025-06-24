@@ -35,16 +35,14 @@ struct Color {
     uint8_t red, green, blue;
 };
 
-bool save_image(const vector<Color>& image, int32_t width, int32_t height, const string& filename) {
+void save_image(const vector<Color>& image, int32_t width, int32_t height, const string& filename) {
     if (width % 4 != 0) {
-        cout << "Image width should be aligned to a multiple of 4" << endl;
-        return false;
+        throw invalid_argument("Image width should be aligned to a multiple of 4");
     }
 
     ofstream file(filename, ios::binary);
     if (!file.is_open()) {
-        cout << "Error opening file: " << filename << endl;
-        return false;
+        throw runtime_error("Error opening file: " + filename);
     }
 
     BMPInfoHeader info_header;
@@ -72,8 +70,6 @@ bool save_image(const vector<Color>& image, int32_t width, int32_t height, const
     file.close();
 
     if (!file.good()) {
-        cout << "Error writing to file: " << filename << endl;
-        return false;
+        throw runtime_error("Error writing to file: " + filename);
     }
-    return true;
 }

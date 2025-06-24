@@ -1,3 +1,8 @@
+// Basic Raytracing
+//
+// Book chapter: https://gabrielgambetta.com/computer-graphics-from-scratch/02-basic-raytracing.html
+// Book example: https://github.com/ggambetta/computer-graphics-from-scratch/blob/master/demos/raytracer-01.html
+
 #include "bmp.h"
 
 struct fVec3 {
@@ -126,9 +131,7 @@ int main() {
         }
     }
 
-    if (save_image(image.data, image.size.width, image.size.height, "results/01-basic-raytracing.bmp")) {
-        cout << "Image written successfully." << endl;
-    }
+    save_image(image.data, image.size.width, image.size.height, "results/01-basic-raytracing.bmp");
 
     return 0;
 }
