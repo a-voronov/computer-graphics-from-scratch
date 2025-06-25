@@ -2,6 +2,11 @@
 //
 // Book chapter: https://gabrielgambetta.com/computer-graphics-from-scratch/02-basic-raytracing.html
 // Book example: https://github.com/ggambetta/computer-graphics-from-scratch/blob/master/demos/raytracer-01.html
+//
+// ```
+// clang++ -std=c++17 examples/01-basic-raytracing.cc -o bin/01-basic-raytracing
+// bin/01-basic-raytracing
+// ```
 
 #include "bmp.h"
 
@@ -45,7 +50,7 @@ struct Image {
         size{width, height}, data(width * height) {}
 
     // computes the offset for the data based on x and y coordinates
-    int32_t offset(int32_t x, int32_t y) {
+    int32_t offset(int32_t x, int32_t y) const {
         x = size.width / 2 + x;
         y = size.height / 2 - y - 1;
 
@@ -69,17 +74,17 @@ fVec3 canvasToViewport(int32_t x, int32_t y, const ImageSize& size, const Scene&
 pair<float, float> intersectRaySphere(const fVec3& origin, const fVec3& direction, const Sphere& sphere) {
     fVec3 oc = origin - sphere.center;
 
-    float k1 = direction.dot(direction);
-    float k2 = 2 * oc.dot(direction);
-    float k3 = oc.dot(oc) - (sphere.radius * sphere.radius);
+    float a = direction.dot(direction);
+    float b = 2 * oc.dot(direction);
+    float c = oc.dot(oc) - (sphere.radius * sphere.radius);
 
-    float discriminant = (k2 * k2) - (4 * k1 * k3);
+    float discriminant = (b * b) - (4 * a * c);
     if (discriminant < 0) {
         return {INFINITY, INFINITY};
     }
 
-    float t1 = (-k2 + sqrtf(discriminant)) / (2 * k1);
-    float t2 = (-k2 - sqrtf(discriminant)) / (2 * k1);
+    float t1 = (-b + sqrt(discriminant)) / (2 * a);
+    float t2 = (-b - sqrt(discriminant)) / (2 * a);
 
     return {t1, t2};
 }
