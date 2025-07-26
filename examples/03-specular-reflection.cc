@@ -1,11 +1,11 @@
-// Diffuse Reflection
+// Specular Reflection
 //
-// Book chapter: https://gabrielgambetta.com/computer-graphics-from-scratch/03-light.html#diffuse-reflection
-// Book example: https://github.com/ggambetta/computer-graphics-from-scratch/blob/master/demos/raytracer-02.html
+// Book chapter: https://gabrielgambetta.com/computer-graphics-from-scratch/03-light.html#specular-reflection
+// Book example: https://github.com/ggambetta/computer-graphics-from-scratch/blob/master/demos/raytracer-03.html
 //
 // ```
-// clang++ -std=c++17 examples/02-diffuse-reflection.cc -o bin/02-diffuse-reflection
-// bin/02-diffuse-reflection
+// clang++ -std=c++17 examples/03-specular-reflection.cc -o bin/03-specular-reflection
+// bin/03-specular-reflection
 // ```
 
 #include "bmp.h"
@@ -51,6 +51,7 @@ struct Light {
 struct Sphere {
     fVec3 center;
     float radius;
+    float specular;
     Color color;
 };
 
@@ -124,7 +125,7 @@ pair<float, float> intersectRaySphere(const fVec3& origin, const fVec3& directio
     return {t1, t2};
 }
 
-float computeLighting(const fVec3& point, const fVec3& normal, const Scene& scene) {
+float computeLighting(const fVec3& point, const fVec3& normal, const fVec3& view, float specular, const Scene& scene) {
     float intensity = 0;
 
     for (int i = 0; i < scene.lights.size(); i++) {
@@ -139,11 +140,21 @@ float computeLighting(const fVec3& point, const fVec3& normal, const Scene& scen
                 vec_l = light.position;
             }
 
+            // diffuse
             float n_dot_l = normal.dot(vec_l);
             // since we're not making sure N and L are normalized,
             // we're using the following formula instead of simply `light.intensity * max(0.0f, n_dot_l)`
             if (n_dot_l > 0) {
                 intensity += light.intensity * n_dot_l / (normal.length() * vec_l.length());
+            }
+
+            // specular
+            if (specular >= 0) {
+                fVec3 reflection = normal * 2 * n_dot_l - vec_l;
+                float r_dot_v = reflection.dot(view);
+                if (r_dot_v > 0) {
+                    intensity += light.intensity * pow(r_dot_v / (reflection.length() * view.length()), specular);
+                }
             }
         }
     }
@@ -173,8 +184,9 @@ Color traceRay(const fVec3& origin, const fVec3& direction, float t_min, float t
 
     fVec3 point = origin + (direction * closest_t);
     fVec3 normal = (point - closest_sphere.center).normalized();
+    fVec3 view = direction * -1;
 
-    return closest_sphere.color * computeLighting(point, normal, scene);
+    return closest_sphere.color * computeLighting(point, normal, view, closest_sphere.specular, scene);
 }
 
 int main() {
@@ -186,10 +198,10 @@ int main() {
         .camera_position = {0, 0, 0},
         .background_color = {255, 255, 255},
         .spheres = {
-            Sphere{.center = {0, -1, 3}, .radius = 1, .color = {255, 0, 0}},
-            Sphere{.center = {-2, 0, 4}, .radius = 1, .color = {0, 255, 0}},
-            Sphere{.center = {2, 0, 4}, .radius = 1, .color = {0, 0, 255}},
-            Sphere{.center = {0, -5001, 0}, .radius = 5000, .color = {255, 255, 0}}
+            Sphere{.center = {0, -1, 3}, .radius = 1, .specular = 500, .color = {255, 0, 0}},
+            Sphere{.center = {-2, 0, 4}, .radius = 1, .specular = 10, .color = {0, 255, 0}},
+            Sphere{.center = {2, 0, 4}, .radius = 1, .specular = 500, .color = {0, 0, 255}},
+            Sphere{.center = {0, -5001, 0}, .radius = 5000, .specular = 1000, .color = {255, 255, 0}}
         },
         .lights = {
             Light{.type = AMBIENT, .intensity = 0.2},
@@ -206,7 +218,7 @@ int main() {
         }
     }
 
-    save_image(image.data, image.size.width, image.size.height, "results/02-diffuse-reflection.bmp");
+    save_image(image.data, image.size.width, image.size.height, "results/03-specular-reflection.bmp");
 
     return 0;
 }
