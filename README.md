@@ -20,3 +20,5 @@ bin/<example> && open results/<example>.bmp
 | [01 - Basic Raytracing](/examples/01-basic-raytracing.cc) | [02 - Diffuse Reflection](/examples/02-diffuse-reflection.cc) | [03 - Specular Reflection](/examples/03-specular-reflection.cc) |
 |---|---|---|
 | ![Basic Raytracing](/results/01-basic-raytracing.bmp) | ![Diffuse Reflection](/results/02-diffuse-reflection.bmp) | ![Specular Reflection](/results/03-specular-reflection.bmp) |
+| [04 - Shadows](/examples/04-shadows.cc) | [05 - Reflections](/examples/05-reflections.cc) | [06 - Camera](/examples/06-camera.cc) |
+| ![Shadows](/results/04-shadows.bmp) | ![Reflections](/results/05-reflections.bmp) | ![Camera](/results/06-camera.bmp) |
