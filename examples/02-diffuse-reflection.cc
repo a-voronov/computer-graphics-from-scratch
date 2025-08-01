@@ -90,9 +90,9 @@ struct Image {
 
 Color operator*(const Color& color, float n) {
     return {
-        .red = (uint8_t)round(clamp<float>(color.red * n, 0, 255)),
-        .green = (uint8_t)round(clamp<float>(color.green * n, 0, 255)),
-        .blue = (uint8_t)round(clamp<float>(color.blue * n, 0, 255))
+        .red = static_cast<uint8_t>(round(clamp<float>(color.red * n, 0, 255))),
+        .green = static_cast<uint8_t>(round(clamp<float>(color.green * n, 0, 255))),
+        .blue = static_cast<uint8_t>(round(clamp<float>(color.blue * n, 0, 255)))
     };
 }
 
