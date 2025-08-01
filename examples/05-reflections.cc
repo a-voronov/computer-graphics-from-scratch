@@ -226,7 +226,8 @@ Color traceRay(const fVec3& origin, const fVec3& direction, float t_min, float t
     }
     // compute the reflected color
     fVec3 vec_r = reflectRay(view, normal);
-    Color reflected_color = traceRay(point, vec_r, EPSILON, INFINITY, recursion_depth - 1, scene);
+    // adding a small bias to the point to fix 'shadow acne' effect on the yellow ball, which is so big it feels almost flat
+    Color reflected_color = traceRay(point + (normal * EPSILON), vec_r, EPSILON, INFINITY, recursion_depth - 1, scene);
 
     return (local_color * (1 - reflective))
         + (reflected_color * reflective);
