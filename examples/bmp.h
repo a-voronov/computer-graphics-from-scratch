@@ -31,11 +31,11 @@ struct BMPInfoHeader {
 
 #pragma pack(pop)
 
-struct Color {
+struct BMPColor {
     uint8_t red, green, blue;
 };
 
-void save_image(const vector<Color>& image, int32_t width, int32_t height, const string& filename) {
+void save_image(const vector<BMPColor>& image, int32_t width, int32_t height, const string& filename) {
     if (width % 4 != 0) {
         throw invalid_argument("Image width should be aligned to a multiple of 4");
     }
@@ -60,7 +60,7 @@ void save_image(const vector<Color>& image, int32_t width, int32_t height, const
 
     for (int32_t y = height - 1; y >= 0; y--) {
         for (int32_t x = 0; x < width; x++) {
-            const Color rgb = image[y * width + x];
+            const BMPColor rgb = image[y * width + x];
             // converting RGB image to BGR for bmp file format
             file.put(rgb.blue);
             file.put(rgb.green);

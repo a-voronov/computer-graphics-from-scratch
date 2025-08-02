@@ -25,14 +25,14 @@ struct fVec3 {
 struct Sphere {
     fVec3 center;
     float radius;
-    Color color;
+    BMPColor color;
 };
 
 struct Scene {
     const float viewport_size = 1;
     const float projection_plane_z = 1;
     fVec3 camera_position;
-    Color background_color;
+    BMPColor background_color;
     vector<Sphere> spheres;
 };
 
@@ -44,7 +44,7 @@ struct ImageSize {
 struct Image {
     const ImageSize size;
     // flattened array of pixels
-    vector<Color> data;
+    vector<BMPColor> data;
 
     Image(int32_t width, int32_t height):
         size{width, height}, data(width * height) {}
@@ -90,7 +90,7 @@ pair<float, float> intersectRaySphere(const fVec3& origin, const fVec3& directio
 }
 
 // traces a ray against the set of spheres in the scene.
-Color traceRay(const fVec3& origin, const fVec3& direction, float t_min, float t_max, const Scene& scene) {
+BMPColor traceRay(const fVec3& origin, const fVec3& direction, float t_min, float t_max, const Scene& scene) {
     float closest_t = INFINITY;
     Sphere closest_sphere;
 
@@ -131,7 +131,7 @@ int main() {
     for (int32_t x = -image.size.width / 2; x < image.size.width / 2; x++) {
         for(int32_t y = -image.size.height / 2; y < image.size.height / 2; y++) {
             fVec3 direction = canvasToViewport(x, y, image.size, scene);
-            Color color = traceRay(scene.camera_position, direction, 1, INFINITY, scene);
+            BMPColor color = traceRay(scene.camera_position, direction, 1, INFINITY, scene);
             image.data[image.offset(x, y)] = color;
         }
     }

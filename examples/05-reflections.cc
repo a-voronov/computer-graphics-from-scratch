@@ -12,6 +12,18 @@
 
 const float EPSILON = 0.001;
 
+struct Color {
+    float red, green, blue;
+
+    BMPColor bmpColor() {
+        return {
+            .red = static_cast<uint8_t>(round(clamp<float>(red * 255, 0, 255))),
+            .green = static_cast<uint8_t>(round(clamp<float>(green * 255, 0, 255))),
+            .blue = static_cast<uint8_t>(round(clamp<float>(blue * 255, 0, 255)))
+        };
+    }
+};
+
 struct fVec3 {
     float x, y, z;
 
@@ -75,7 +87,7 @@ struct ImageSize {
 struct Image {
     const ImageSize size;
     // flattened array of pixels
-    vector<Color> data;
+    vector<BMPColor> data;
 
     Image(int32_t width, int32_t height):
         size{width, height}, data(width * height) {}
@@ -94,17 +106,17 @@ struct Image {
 
 Color operator*(const Color& color, float n) {
     return {
-        .red = static_cast<uint8_t>(round(clamp<float>(color.red * n, 0, 255))),
-        .green = static_cast<uint8_t>(round(clamp<float>(color.green * n, 0, 255))),
-        .blue = static_cast<uint8_t>(round(clamp<float>(color.blue * n, 0, 255)))
+        .red = color.red * n,
+        .green = color.green * n,
+        .blue = color.blue * n
     };
 }
 
 Color operator+(const Color& lhs, const Color& rhs) {
     return {
-        .red = static_cast<uint8_t>(clamp(lhs.red + rhs.red, 0, 255)),
-        .green = static_cast<uint8_t>(clamp(lhs.green + rhs.green, 0, 255)),
-        .blue = static_cast<uint8_t>(clamp(lhs.blue + rhs.blue, 0, 255))
+        .red = lhs.red + rhs.red,
+        .green = lhs.green + rhs.green,
+        .blue = lhs.blue + rhs.blue
     };
 }
 
@@ -242,10 +254,10 @@ int main() {
         .camera_position = {0, 0, 0},
         .background_color = {0, 0, 0},
         .spheres = {
-            Sphere{.center = {0, -1, 3}, .radius = 1, .specular = 500, .reflective = 0.2, .color = {255, 0, 0}},
-            Sphere{.center = {-2, 0, 4}, .radius = 1, .specular = 10, .reflective = 0.4, .color = {0, 255, 0}},
-            Sphere{.center = {2, 0, 4}, .radius = 1, .specular = 500, .reflective = 0.3, .color = {0, 0, 255}},
-            Sphere{.center = {0, -5001, 0}, .radius = 5000, .specular = 1000, .reflective = 0.5, .color = {255, 255, 0}}
+            Sphere{.center = {0, -1, 3}, .radius = 1, .specular = 500, .reflective = 0.2, .color = {1, 0, 0}},
+            Sphere{.center = {-2, 0, 4}, .radius = 1, .specular = 10, .reflective = 0.4, .color = {0, 1, 0}},
+            Sphere{.center = {2, 0, 4}, .radius = 1, .specular = 500, .reflective = 0.3, .color = {0, 0, 1}},
+            Sphere{.center = {0, -5001, 0}, .radius = 5000, .specular = 1000, .reflective = 0.5, .color = {1, 1, 0}}
         },
         .lights = {
             Light{.type = AMBIENT, .intensity = 0.2},
@@ -258,7 +270,7 @@ int main() {
         for(int32_t y = -image.size.height / 2; y < image.size.height / 2; y++) {
             fVec3 direction = canvasToViewport(x, y, image.size, scene);
             Color color = traceRay(scene.camera_position, direction, 1, INFINITY, 3, scene);
-            image.data[image.offset(x, y)] = color;
+            image.data[image.offset(x, y)] = color.bmpColor();
         }
     }
 

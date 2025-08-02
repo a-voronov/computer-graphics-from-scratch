@@ -52,14 +52,14 @@ struct Sphere {
     fVec3 center;
     float radius;
     float specular;
-    Color color;
+    BMPColor color;
 };
 
 struct Scene {
     const float viewport_size = 1;
     const float projection_plane_z = 1;
     fVec3 camera_position;
-    Color background_color;
+    BMPColor background_color;
     vector<Sphere> spheres;
     vector<Light> lights;
 };
@@ -72,7 +72,7 @@ struct ImageSize {
 struct Image {
     const ImageSize size;
     // flattened array of pixels
-    vector<Color> data;
+    vector<BMPColor> data;
 
     Image(int32_t width, int32_t height):
         size{width, height}, data(width * height) {}
@@ -89,7 +89,7 @@ struct Image {
     }
 };
 
-Color operator*(const Color& color, float n) {
+BMPColor operator*(const BMPColor& color, float n) {
     return {
         .red = static_cast<uint8_t>(round(clamp<float>(color.red * n, 0, 255))),
         .green = static_cast<uint8_t>(round(clamp<float>(color.green * n, 0, 255))),
@@ -192,7 +192,7 @@ float computeLighting(const fVec3& point, const fVec3& normal, const fVec3& view
 }
 
 // traces a ray against the set of spheres in the scene.
-Color traceRay(const fVec3& origin, const fVec3& direction, float t_min, float t_max, const Scene& scene) {
+BMPColor traceRay(const fVec3& origin, const fVec3& direction, float t_min, float t_max, const Scene& scene) {
     auto [closest_sphere, closest_t] = closestIntersection(origin, direction, t_min, t_max, scene);
 
     if (closest_t == INFINITY) {
@@ -230,7 +230,7 @@ int main() {
     for (int32_t x = -image.size.width / 2; x < image.size.width / 2; x++) {
         for(int32_t y = -image.size.height / 2; y < image.size.height / 2; y++) {
             fVec3 direction = canvasToViewport(x, y, image.size, scene);
-            Color color = traceRay(scene.camera_position, direction, 1, INFINITY, scene);
+            BMPColor color = traceRay(scene.camera_position, direction, 1, INFINITY, scene);
             image.data[image.offset(x, y)] = color;
         }
     }
