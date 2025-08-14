@@ -133,7 +133,7 @@ struct HitInfo {
     const Object* object;
 };
 
-// MARK: - BVH Tree
+// MARK: - Bounding Volume Hierarchy Tree
 
 struct BVHNode {
     AABB bounds;

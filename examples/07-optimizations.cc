@@ -9,53 +9,14 @@
 // ```
 
 #include "bmp.h"
+#include "bvh.h"
 
 const float EPSILON = 0.001;
 
-struct Color {
-    float red, green, blue;
+struct Mat33 {
+    Vec3 a, b, c;
 
-    BMPColor bmpColor() {
-        return {
-            .red = static_cast<uint8_t>(round(clamp<float>(red * 255, 0, 255))),
-            .green = static_cast<uint8_t>(round(clamp<float>(green * 255, 0, 255))),
-            .blue = static_cast<uint8_t>(round(clamp<float>(blue * 255, 0, 255)))
-        };
-    }
-};
-
-struct fVec3 {
-    float x, y, z;
-
-    fVec3 operator+(const fVec3& other) const {
-        return { x + other.x, y + other.y, z + other.z };
-    }
-
-    fVec3 operator-(const fVec3& other) const {
-        return { x - other.x, y - other.y, z - other.z };
-    }
-
-    fVec3 operator*(float n) const {
-        return { x * n, y * n, z * n };
-    }
-
-    float dot(const fVec3& other) const {
-        return x * other.x + y * other.y + z * other.z;
-    }
-
-    float length() const {
-        return sqrt(this->dot(*this));
-    }
-
-    fVec3 normalized() const {
-        return *this * (1.0 / this->length());
-    }
-};
-
-struct fMat33 {
-    fVec3 a, b, c;
-
-    fVec3 operator*(const fVec3& vector) const {
+    Vec3 operator*(const Vec3& vector) const {
         return { a.dot(vector), b.dot(vector), c.dot(vector) };
     }
 };
@@ -65,28 +26,72 @@ enum LightType {
 };
 
 struct Light {
-    fVec3 position;
+    Vec3 position;
     float intensity;
     LightType type;
 };
 
-struct Sphere {
-    fVec3 center;
+struct Sphere : Object {
+    Vec3 center;
     float radius;
-    float specular;
-    float reflective;
-    Color color;
+
+    Sphere(const Vec3& c, float r, float spec, float refl, const Color& col) : center(c), radius(r) {
+        specular = spec;
+        reflective = refl;
+        color = col;
+    }
+
+    AABB bounds() const {
+        return AABB{
+            center - Vec3{radius, radius, radius},
+            center + Vec3{radius, radius, radius}
+        };
+    }
+
+    Vec3 centroid() const {
+        return center;
+    }
+
+    optional<HitInfo> intersect(const Ray& ray, float t_min, float t_max) const {
+        Vec3 oc = ray.origin - center;
+
+        float a = ray.direction.dot(ray.direction);
+        float b = 2 * oc.dot(ray.direction);
+        float c = oc.dot(oc) - (radius * radius);
+
+        float discriminant = (b * b) - (4 * a * c);
+        if (discriminant < 0) {
+            return nullopt;
+        }
+
+        float sqrtD = sqrt(discriminant);
+        float closest_t = (-b - sqrtD) / (2 * a);
+        if (closest_t < t_min || closest_t > t_max) {
+            closest_t = (-b + sqrtD) / (2 * a);
+            if (closest_t < t_min || closest_t > t_max) {
+                return nullopt;
+            }
+        }
+
+        Vec3 hitPoint = ray.at(closest_t);
+        return HitInfo{
+            .point = hitPoint,
+            .normal = (hitPoint - center).normalized(),
+            .t = closest_t,
+            .object = this
+        };
+    }
 };
 
 struct Camera {
-    fVec3 position;
-    fMat33 rotation;
+    Vec3 position;
+    Mat33 rotation;
 };
 
 struct Scene {
     const float viewport_size = 1;
     const float projection_plane_z = 1;
-    fVec3 camera_position;
+    Vec3 camera_position;
     Color background_color;
     vector<Sphere> spheres;
     vector<Light> lights;
@@ -134,77 +139,56 @@ Color operator+(const Color& lhs, const Color& rhs) {
 }
 
 // converts 2D canvas coordinates to 3D viewport coordinates.
-fVec3 canvasToViewport(int32_t x, int32_t y, const ImageSize& size, const Scene& scene) {
-    return fVec3 {
+Vec3 canvasToViewport(int32_t x, int32_t y, const ImageSize& size, const Scene& scene) {
+    return Vec3 {
         (float)x * scene.viewport_size / size.width,
         (float)y * scene.viewport_size / size.height,
         scene.projection_plane_z
     };
 }
 
-// computes the intersection of a ray and a sphere. Returns the values of t for the intersections.
-pair<float, float> intersectRaySphere(const fVec3& origin, const fVec3& direction, const Sphere& sphere) {
-    fVec3 oc = origin - sphere.center;
-
-    float a = direction.dot(direction);
-    float b = 2 * oc.dot(direction);
-    float c = oc.dot(oc) - (sphere.radius * sphere.radius);
-
-    float discriminant = (b * b) - (4 * a * c);
-    if (discriminant < 0) {
-        return {INFINITY, INFINITY};
-    }
-
-    float t1 = (-b + sqrt(discriminant)) / (2 * a);
-    float t2 = (-b - sqrt(discriminant)) / (2 * a);
-
-    return {t1, t2};
-}
-
 // find the closest intersection between a ray and the spheres in the scene.
-pair<Sphere, float> closestIntersection(const fVec3& origin, const fVec3& direction, float t_min, float t_max, const Scene& scene) {
+optional<HitInfo> closestIntersection(const Ray& ray, float t_min, float t_max, const Scene& scene) {
     float closest_t = INFINITY;
-    Sphere closest_sphere;
+    optional<HitInfo> closest_hit;
 
-    for (int32_t i = 0; i < scene.spheres.size(); i++) {
-        auto [xt_min, xt_max] = intersectRaySphere(origin, direction, scene.spheres[i]);
-        if (xt_min < closest_t && t_min < xt_min && xt_min < t_max) {
-            closest_t = xt_min;
-            closest_sphere = scene.spheres[i];
-        }
-        if (xt_max < closest_t && t_min < xt_max && xt_max < t_max) {
-            closest_t = xt_max;
-            closest_sphere = scene.spheres[i];
+    for (const Sphere& sphere : scene.spheres) {
+        if (auto hit_info = sphere.intersect(ray, t_min, t_max)) {
+            const HitInfo& hit = *hit_info;
+            if (hit.t < closest_t && t_min < hit.t && hit.t < t_max) {
+                closest_hit = hit;
+                closest_t = hit.t;
+            }
         }
     }
-
-    return {closest_sphere, closest_t};
+    return closest_hit;
 }
 
 // find out if there is any intersection between a ray and the spheres in the scene.
-bool hasAnyIntersection(const fVec3& origin, const fVec3& direction, float t_min, float t_max, const Scene& scene) {
-    for (int32_t i = 0; i < scene.spheres.size(); i++) {
-        auto [xt_min, xt_max] = intersectRaySphere(origin, direction, scene.spheres[i]);
-        if ((t_min < xt_min && xt_min < t_max) && (t_min < xt_max && xt_max < t_max)) {
-            return true;
+bool hasAnyIntersection(const Ray& ray, float t_min, float t_max, const Scene& scene) {
+    for (const Sphere& sphere : scene.spheres) {
+        if (auto hit_info = sphere.intersect(ray, t_min, t_max)) {
+            const HitInfo& hit = *hit_info;
+            if (t_min < hit.t && hit.t < t_max) {
+                return true;
+            }
         }
     }
     return false;
 }
 
-fVec3 reflectRay(const fVec3& ray, const fVec3& normal) {
+Vec3 reflectRay(const Vec3& ray, const Vec3& normal) {
     return normal * 2 * normal.dot(ray) - ray;
 }
 
-float computeLighting(const fVec3& point, const fVec3& normal, const fVec3& view, float specular, const Scene& scene) {
+float computeLighting(const Vec3& point, const Vec3& normal, const Vec3& view, float specular, const Scene& scene) {
     float intensity = 0;
 
-    for (int i = 0; i < scene.lights.size(); i++) {
-        Light light = scene.lights[i];
+    for (const Light& light : scene.lights) {
         if (light.type == AMBIENT) {
             intensity += light.intensity;
         } else {
-            fVec3 vec_l = {0, 0, 0};
+            Vec3 vec_l = {0, 0, 0};
             float shadow_t_max;
 
             if (light.type == POINT) {
@@ -216,7 +200,7 @@ float computeLighting(const fVec3& point, const fVec3& normal, const fVec3& view
             }
 
             // shadow check
-            if (hasAnyIntersection(point, vec_l, EPSILON, shadow_t_max, scene)) {
+            if (hasAnyIntersection(Ray{point, vec_l}, EPSILON, shadow_t_max, scene)) {
                 continue;
             }
 
@@ -230,7 +214,7 @@ float computeLighting(const fVec3& point, const fVec3& normal, const fVec3& view
 
             // specular
             if (specular >= 0) {
-                fVec3 reflection = reflectRay(vec_l, normal);
+                Vec3 reflection = reflectRay(vec_l, normal);
                 float r_dot_v = reflection.dot(view);
                 if (r_dot_v > 0) {
                     intensity += light.intensity * pow(r_dot_v / (reflection.length() * view.length()), specular);
@@ -242,30 +226,36 @@ float computeLighting(const fVec3& point, const fVec3& normal, const fVec3& view
 }
 
 // traces a ray against the set of spheres in the scene.
-Color traceRay(const fVec3& origin, const fVec3& direction, float t_min, float t_max, int8_t recursion_depth, const Scene& scene) {
-    auto [closest_sphere, closest_t] = closestIntersection(origin, direction, t_min, t_max, scene);
+Color traceRay(const Ray& ray, float t_min, float t_max, int8_t recursion_depth, const Scene& scene) {
+    if (auto closest_hit_info = closestIntersection(ray, t_min, t_max, scene)) {
+        const HitInfo& closest_hit = *closest_hit_info;
+        Vec3 point = ray.origin + (ray.direction * closest_hit.t);
+        Vec3 view = ray.direction * -1;
+        Color local_color = closest_hit.object->color * computeLighting(point, closest_hit.normal, view, closest_hit.object->specular, scene);
 
-    if (closest_t == INFINITY) {
-        return scene.background_color;
-    }
-
-    fVec3 point = origin + (direction * closest_t);
-    fVec3 normal = (point - closest_sphere.center).normalized();
-    fVec3 view = direction * -1;
-    Color local_color = closest_sphere.color * computeLighting(point, normal, view, closest_sphere.specular, scene);
-
-    // if we hit the recursion limit or the object is not reflective, we're done
-    float reflective = closest_sphere.reflective;
-    if (recursion_depth <= 0 or reflective <= 0) {
-        return local_color;
-    }
-    // compute the reflected color
-    fVec3 vec_r = reflectRay(view, normal);
-    // adding a small bias to the point to fix 'shadow acne' effect on the yellow ball, which is so big it feels almost flat
-    Color reflected_color = traceRay(point + (normal * EPSILON), vec_r, EPSILON, INFINITY, recursion_depth - 1, scene);
+        // if we hit the recursion limit or the object is not reflective, we're done
+        float reflective = closest_hit.object->reflective;
+        if (recursion_depth <= 0 or reflective <= 0) {
+            return local_color;
+        }
+        // compute the reflected color
+        Vec3 vec_r = reflectRay(view, closest_hit.normal);
+        // adding a small bias to the point to fix 'shadow acne' effect on the yellow ball, which is so big it feels almost flat
+        Ray reflection_ray = {point + (closest_hit.normal * EPSILON), vec_r};
+        Color reflected_color = traceRay(reflection_ray, EPSILON, INFINITY, recursion_depth - 1, scene);
 
     return (local_color * (1 - reflective))
         + (reflected_color * reflective);
+    }
+    return scene.background_color;
+}
+
+BMPColor bmpColor(const Color& color) {
+    return {
+        .red = static_cast<uint8_t>(round(clamp<float>(color.red * 255, 0, 255))),
+        .green = static_cast<uint8_t>(round(clamp<float>(color.green * 255, 0, 255))),
+        .blue = static_cast<uint8_t>(round(clamp<float>(color.blue * 255, 0, 255)))
+    };
 }
 
 int main() {
@@ -276,11 +266,13 @@ int main() {
         .projection_plane_z = 1,
         .camera_position = {0, 0, 0},
         .background_color = {0, 0, 0},
+        // TODO: use objects instead of spheres
+        // TODO: build BVH out of scene.objects
         .spheres = {
-            Sphere{.center = {0, -1, 3}, .radius = 1, .specular = 500, .reflective = 0.2, .color = {1, 0, 0}},
-            Sphere{.center = {-2, 0, 4}, .radius = 1, .specular = 10, .reflective = 0.4, .color = {0, 1, 0}},
-            Sphere{.center = {2, 0, 4}, .radius = 1, .specular = 500, .reflective = 0.3, .color = {0, 0, 1}},
-            Sphere{.center = {0, -5001, 0}, .radius = 5000, .specular = 1000, .reflective = 0.5, .color = {1, 1, 0}}
+            Sphere{{0, -1, 3}, 1, 500, 0.2, {1, 0, 0}},
+            Sphere{{-2, 0, 4}, 1, 10, 0.4, {0, 1, 0}},
+            Sphere{{2, 0, 4}, 1, 500, 0.3, {0, 0, 1}},
+            Sphere{{0, -5001, 0}, 5000, 1000, 0.5, {1, 1, 0}}
         },
         .lights = {
             Light{.type = AMBIENT, .intensity = 0.2},
@@ -300,9 +292,10 @@ int main() {
 
     for (int32_t x = -image.size.width / 2; x < image.size.width / 2; x++) {
         for(int32_t y = -image.size.height / 2; y < image.size.height / 2; y++) {
-            fVec3 direction = camera.rotation * canvasToViewport(x, y, image.size, scene);
-            Color color = traceRay(camera.position, direction, 1, INFINITY, 3, scene);
-            image.data[image.offset(x, y)] = color.bmpColor();
+            Vec3 direction = camera.rotation * canvasToViewport(x, y, image.size, scene);
+            Ray camera_ray = {camera.position, direction};
+            Color color = traceRay(camera_ray, 1, INFINITY, 3, scene);
+            image.data[image.offset(x, y)] = bmpColor(color);
         }
     }
 
