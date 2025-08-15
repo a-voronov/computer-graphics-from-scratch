@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <memory>
 
 using namespace std;
 
@@ -121,6 +122,7 @@ struct Object {
     float reflective;
     Color color;
 
+    virtual ~Object() = default;
     virtual AABB bounds() const = 0;
     virtual Vec3 centroid() const = 0;
     virtual optional<HitInfo> intersect(const Ray& ray, float t_min, float t_max) const = 0;
@@ -171,6 +173,10 @@ struct BVHNode {
         return node;
     }
 
+    bool isLeaf() const {
+        return !left && !right;
+    }
+
     optional<HitInfo> intersect(const Ray& ray, float t_min, float t_max) const {
         // first, cull with bounding box
         if (!bounds.intersect(ray, t_min, t_max)) {
@@ -178,7 +184,7 @@ struct BVHNode {
         }
 
         // leaf node - test all objects
-        if (!left && !right) {
+        if (isLeaf()) {
             optional<HitInfo> closest_hit;
             float closest_t = t_max;
 
@@ -222,5 +228,22 @@ struct BVHNode {
         } else {
             return hit_right;
         }
+    }
+
+    bool intersectAnything(const Ray& ray, float t_min, float t_max) const {
+        if (!bounds.intersect(ray, t_min, t_max)) {
+            return false;
+        }
+
+        if (isLeaf()) {
+            for (const Object* obj : objects) {
+                if (obj->intersect(ray, t_min, t_max))
+                    return true;
+            }
+            return false;
+        }
+
+        return (left && left->intersectAnything(ray, t_min, t_max))
+            || (right && right->intersectAnything(ray, t_min, t_max));
     }
 };

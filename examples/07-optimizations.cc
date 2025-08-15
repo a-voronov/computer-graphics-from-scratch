@@ -93,8 +93,9 @@ struct Scene {
     const float projection_plane_z = 1;
     Vec3 camera_position;
     Color background_color;
-    vector<Sphere> spheres;
     vector<Light> lights;
+    vector<unique_ptr<Object>> objects;
+    unique_ptr<BVHNode> bvh;
 };
 
 struct ImageSize {
@@ -147,36 +148,6 @@ Vec3 canvasToViewport(int32_t x, int32_t y, const ImageSize& size, const Scene& 
     };
 }
 
-// find the closest intersection between a ray and the spheres in the scene.
-optional<HitInfo> closestIntersection(const Ray& ray, float t_min, float t_max, const Scene& scene) {
-    float closest_t = INFINITY;
-    optional<HitInfo> closest_hit;
-
-    for (const Sphere& sphere : scene.spheres) {
-        if (auto hit_info = sphere.intersect(ray, t_min, t_max)) {
-            const HitInfo& hit = *hit_info;
-            if (hit.t < closest_t && t_min < hit.t && hit.t < t_max) {
-                closest_hit = hit;
-                closest_t = hit.t;
-            }
-        }
-    }
-    return closest_hit;
-}
-
-// find out if there is any intersection between a ray and the spheres in the scene.
-bool hasAnyIntersection(const Ray& ray, float t_min, float t_max, const Scene& scene) {
-    for (const Sphere& sphere : scene.spheres) {
-        if (auto hit_info = sphere.intersect(ray, t_min, t_max)) {
-            const HitInfo& hit = *hit_info;
-            if (t_min < hit.t && hit.t < t_max) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
 Vec3 reflectRay(const Vec3& ray, const Vec3& normal) {
     return normal * 2 * normal.dot(ray) - ray;
 }
@@ -200,7 +171,7 @@ float computeLighting(const Vec3& point, const Vec3& normal, const Vec3& view, f
             }
 
             // shadow check
-            if (hasAnyIntersection(Ray{point, vec_l}, EPSILON, shadow_t_max, scene)) {
+            if (scene.bvh->intersectAnything(Ray{point, vec_l}, EPSILON, shadow_t_max)) {
                 continue;
             }
 
@@ -227,25 +198,24 @@ float computeLighting(const Vec3& point, const Vec3& normal, const Vec3& view, f
 
 // traces a ray against the set of spheres in the scene.
 Color traceRay(const Ray& ray, float t_min, float t_max, int8_t recursion_depth, const Scene& scene) {
-    if (auto closest_hit_info = closestIntersection(ray, t_min, t_max, scene)) {
-        const HitInfo& closest_hit = *closest_hit_info;
-        Vec3 point = ray.origin + (ray.direction * closest_hit.t);
+    if (auto hit = scene.bvh->intersect(ray, t_min, t_max)) {
+        Vec3 point = ray.origin + (ray.direction * hit->t);
         Vec3 view = ray.direction * -1;
-        Color local_color = closest_hit.object->color * computeLighting(point, closest_hit.normal, view, closest_hit.object->specular, scene);
+        Color local_color = hit->object->color * computeLighting(point, hit->normal, view, hit->object->specular, scene);
 
         // if we hit the recursion limit or the object is not reflective, we're done
-        float reflective = closest_hit.object->reflective;
+        float reflective = hit->object->reflective;
         if (recursion_depth <= 0 or reflective <= 0) {
             return local_color;
         }
         // compute the reflected color
-        Vec3 vec_r = reflectRay(view, closest_hit.normal);
+        Vec3 vec_r = reflectRay(view, hit->normal);
         // adding a small bias to the point to fix 'shadow acne' effect on the yellow ball, which is so big it feels almost flat
-        Ray reflection_ray = {point + (closest_hit.normal * EPSILON), vec_r};
+        Ray reflection_ray = {point + (hit->normal * EPSILON), vec_r};
         Color reflected_color = traceRay(reflection_ray, EPSILON, INFINITY, recursion_depth - 1, scene);
 
-    return (local_color * (1 - reflective))
-        + (reflected_color * reflective);
+        return (local_color * (1 - reflective))
+            + (reflected_color * reflective);
     }
     return scene.background_color;
 }
@@ -258,6 +228,15 @@ BMPColor bmpColor(const Color& color) {
     };
 }
 
+std::vector<const Object*> objectsPointerView(const vector<unique_ptr<Object>>& objects) {
+    vector<const Object*> view;
+    view.reserve(objects.size());
+    for (const auto& object : objects) {
+        view.push_back(object.get());
+    }
+    return view;
+}
+
 int main() {
     Image image = {600, 600};
 
@@ -266,20 +245,19 @@ int main() {
         .projection_plane_z = 1,
         .camera_position = {0, 0, 0},
         .background_color = {0, 0, 0},
-        // TODO: use objects instead of spheres
-        // TODO: build BVH out of scene.objects
-        .spheres = {
-            Sphere{{0, -1, 3}, 1, 500, 0.2, {1, 0, 0}},
-            Sphere{{-2, 0, 4}, 1, 10, 0.4, {0, 1, 0}},
-            Sphere{{2, 0, 4}, 1, 500, 0.3, {0, 0, 1}},
-            Sphere{{0, -5001, 0}, 5000, 1000, 0.5, {1, 1, 0}}
-        },
         .lights = {
             Light{.type = AMBIENT, .intensity = 0.2},
             Light{.type = POINT, .intensity = 0.6, .position = {2, 1, 0}},
             Light{.type = DIRECTIONAL, .intensity = 0.2, .position = {1, 4, 4}}
-        }
+        },
     };
+    scene.objects.reserve(4);
+    scene.objects.emplace_back(make_unique<Sphere>(Vec3{0, -1, 3}, 1, 500, 0.2, Color{1, 0, 0}));
+    scene.objects.emplace_back(make_unique<Sphere>(Vec3{-2, 0, 4}, 1, 10, 0.4, Color{0, 1, 0}));
+    scene.objects.emplace_back(make_unique<Sphere>(Vec3{2, 0, 4}, 1, 500, 0.3, Color{0, 0, 1}));
+    scene.objects.emplace_back(make_unique<Sphere>(Vec3{0, -5001, 0}, 5000, 1000, 0.5, Color{1, 1, 0}));
+    // scene is owning objects and a BVH tree, while BVH is only keeping pointers to the objects
+    scene.bvh = BVHNode::build(objectsPointerView(scene.objects));
 
     Camera camera = {
         .position = {3, 0, 1},
