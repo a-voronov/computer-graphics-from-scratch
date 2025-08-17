@@ -9,6 +9,7 @@
 // ```
 
 #include "bmp.h"
+#include <chrono>
 
 const float EPSILON = 0.001;
 
@@ -259,6 +260,7 @@ Color traceRay(const fVec3& origin, const fVec3& direction, float t_min, float t
 }
 
 int main() {
+    auto start = chrono::high_resolution_clock::now();
     Image image = {600, 600};
 
     Scene scene = {
@@ -297,6 +299,9 @@ int main() {
     }
 
     save_image(image.data, image.size.width, image.size.height, "results/06-camera.bmp");
+
+    auto end = chrono::high_resolution_clock::now();
+    cout << "Time spent: " << chrono::duration_cast<chrono::milliseconds>(end - start).count() << " ms\n";
 
     return 0;
 }
