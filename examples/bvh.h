@@ -38,6 +38,14 @@ struct Vec3 {
         return x * other.x + y * other.y + z * other.z;
     }
 
+    Vec3 cross(const Vec3& other) const {
+        return {
+            y * other.z - z * other.y,
+            z * other.x - x * other.z,
+            x * other.y - y * other.x
+        };
+    }
+
     float length() const {
         return sqrt(this->dot(*this));
     }
