@@ -10,8 +10,10 @@
 
 #include "bmp.h"
 #include "bvh.h"
+#include <chrono>
 
 const float EPSILON = 0.001;
+const bool SUBSAMPLING = false;
 
 struct Mat33 {
     Vec3 a, b, c;
@@ -106,7 +108,7 @@ struct ImageSize {
 struct Image {
     const ImageSize size;
     // flattened array of pixels
-    vector<BMPColor> data;
+    vector<Color> data;
 
     Image(int32_t width, int32_t height):
         size{width, height}, data(width * height) {}
@@ -238,6 +240,8 @@ std::vector<const Object*> objectsPointerView(const vector<unique_ptr<Object>>& 
 }
 
 int main() {
+    auto start = chrono::high_resolution_clock::now();
+
     Image image = {600, 600};
 
     Scene scene = {
@@ -268,16 +272,87 @@ int main() {
         }
     };
 
-    for (int32_t x = -image.size.width / 2; x < image.size.width / 2; x++) {
-        for(int32_t y = -image.size.height / 2; y < image.size.height / 2; y++) {
-            Vec3 direction = camera.rotation * canvasToViewport(x, y, image.size, scene);
-            Ray camera_ray = {camera.position, direction};
-            Color color = traceRay(camera_ray, 1, INFINITY, 3, scene);
-            image.data[image.offset(x, y)] = bmpColor(color);
+    if (SUBSAMPLING) {
+        int32_t start_x = -image.size.width / 2;
+        int32_t start_y = -image.size.height / 2;
+
+        int32_t end_x = image.size.width / 2;
+        int32_t end_y = image.size.height / 2;
+
+        // skipping every other pixel to reduce ray tracing computations
+        for (int32_t x = start_x; x < end_x; x += 2) {
+            for(int32_t y = start_y; y < end_y; y += 2) {
+                Vec3 direction = camera.rotation * canvasToViewport(x, y, image.size, scene);
+                Ray camera_ray = {camera.position, direction};
+
+                image.data[image.offset(x, y)] = traceRay(camera_ray, 1, INFINITY, 3, scene);
+            }
+        }
+        // now we need to fill in missing colors by moving through every other pixel,
+        // the way we iterate through the image, you can assume that the result of the first pass is four corner colors,
+        // now we're doing a second pass through every other pixel to fill in 5 missing colors;
+        //
+        // however since we're moving from bottom-left to top-right corner,
+        // it means that we can skip calculating top and right pixel colors,
+        // since they'll be calculated as left and bottom colors on the next iteration around another center pixel
+        // ┌─────┐
+        // │■ △ ■│
+        // │◁ ◇ ▷│
+        // │■ ▽ ■│
+        // └─────┘
+        for (int32_t x = start_x + 1; x < end_x; x += 2) {
+            for(int32_t y = start_y + 1; y < end_y; y += 2) {
+                int32_t left_x = x - 1;
+                int32_t bottom_y = y - 1;
+                // since we're moving from bottom-left corner to the upper-right one,
+                // we need to make sure we're not getting outside of top and right borders
+                bool at_top_border = y == end_y - 1;
+                bool at_right_border = x == end_x - 1;
+                // reflecting x and y coordinates beyond image borders
+                int32_t right_x = at_right_border ? left_x : x + 1;
+                int32_t top_y = at_top_border ? bottom_y : y + 1;
+
+                Color top_left_color = image.data[image.offset(left_x, top_y)];
+                Color top_right_color = image.data[image.offset(right_x, top_y)];
+                Color bottom_left_color = image.data[image.offset(left_x, bottom_y)];
+                Color bottom_right_color = image.data[image.offset(right_x, bottom_y)];
+                // only calculating top and right colors when we're at the corresponding image borders
+                if (at_top_border) {
+                    image.data[image.offset(x, top_y)] = (top_left_color + top_right_color) * 0.5;
+                }
+                if (at_right_border) {
+                    image.data[image.offset(right_x, y)] = (bottom_right_color + top_right_color) * 0.5;
+                }
+                image.data[image.offset(x, bottom_y)] = (bottom_left_color + bottom_right_color) * 0.5;
+                image.data[image.offset(left_x, y)] = (top_left_color + bottom_left_color) * 0.5;
+                image.data[image.offset(x, y)] = (top_left_color + top_right_color + bottom_left_color + bottom_right_color) * 0.25;
+            }
+        }
+        image.data[image.offset(start_x, start_y)] = {1,1,1};
+    } else {
+        for (int32_t x = -image.size.width / 2; x < image.size.width / 2; x++) {
+            for(int32_t y = -image.size.height / 2; y < image.size.height / 2; y++) {
+                Vec3 direction = camera.rotation * canvasToViewport(x, y, image.size, scene);
+                Ray camera_ray = {camera.position, direction};
+                Color color = traceRay(camera_ray, 1, INFINITY, 3, scene);
+                image.data[image.offset(x, y)] = color;
+            }
         }
     }
 
-    save_image(image.data, image.size.width, image.size.height, "results/07-optimizations.bmp");
+    vector<BMPColor> bmp_image = vector<BMPColor>(image.data.size());
+    for (int i = 0; i < image.data.size(); i++) {
+        bmp_image[i] = bmpColor(image.data[i]);
+    }
+
+    if (SUBSAMPLING) {
+        save_image(bmp_image, image.size.width, image.size.height, "results/07-optimizations-subsampling.bmp");
+    } else {
+        save_image(bmp_image, image.size.width, image.size.height, "results/07-optimizations.bmp");
+    }
+
+    auto end = chrono::high_resolution_clock::now();
+    cout << "Time spent: " << chrono::duration_cast<chrono::milliseconds>(end - start).count() << " ms\n";
 
     return 0;
 }
