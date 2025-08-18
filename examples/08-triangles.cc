@@ -316,24 +316,28 @@ int main() {
         .lights = {
             Light{.type = AMBIENT, .intensity = 0.2},
             Light{.type = POINT, .intensity = 0.6, .position = {2, 1, 0}},
-            Light{.type = DIRECTIONAL, .intensity = 0.2, .position = {1, 4, 4}}
+            Light{.type = DIRECTIONAL, .intensity = 0.2, .position = {-1, 3, -4}}
         },
     };
     scene.objects.reserve(4);
-    scene.objects.emplace_back(make_unique<Sphere>(Vec3{0, -1, 3}, 1, 500, 0.2, Color{1, 0, 0}));
-    scene.objects.emplace_back(make_unique<Sphere>(Vec3{-2, 0, 4}, 1, 10, 0.4, Color{0, 1, 0}));
-    scene.objects.emplace_back(make_unique<Sphere>(Vec3{2, 0, 4}, 1, 500, 0.3, Color{0, 0, 1}));
+    scene.objects.emplace_back(make_unique<Sphere>(Vec3{0.5, -0.5, 0}, 1, 500, 0.2, Color{1, 0, 0}));
+    scene.objects.emplace_back(make_unique<Sphere>(Vec3{-7, 0, 4}, 1, 10, 0.4, Color{0, 1, 0}));
+    scene.objects.emplace_back(make_unique<Sphere>(Vec3{2, 2, 4}, 1.5, 500, 0.3, Color{0, 0, 1}));
     scene.objects.emplace_back(make_unique<Sphere>(Vec3{0, -5001, 0}, 5000, 1000, 0.5, Color{1, 1, 0}));
+
+    scene.objects.emplace_back(make_unique<Triangle>(Vec3{-6, -1.1, 4}, Vec3{-3, -1.1, -1}, Vec3{-2.5, 1.5, -1.5}, 420, 0.5, Color{1, 0.2, 1}));
+    scene.objects.emplace_back(make_unique<Triangle>(Vec3{-3, -1.1, -1}, Vec3{0, -1.1, 4}, Vec3{-2.5, 1.5, -1.5}, 420, 0.5, Color{1, 0.2, 1}));
+    scene.objects.emplace_back(make_unique<Triangle>(Vec3{0, -1.1, 4}, Vec3{-6, -1.1, 4}, Vec3{-2.5, 1.5, -1.5}, 420, 0.5, Color{1, 0.2, 1}));
 
     // scene is owning objects and a BVH tree, while BVH is only keeping pointers to the objects
     scene.bvh = BVHNode::build(objectsPointerView(scene.objects));
 
     Camera camera = {
-        .position = {6, 0, -2},
+        .position = {-2, 0, -9},
         .rotation = {
-            {0.7071, 0, -0.7071},
-            {     0, 1,       0},
-            {0.7071, 0,  0.7071}
+            {1,0,0},
+            {0,1,0},
+            {0,0,1}
         }
     };
 
