@@ -17,6 +17,8 @@ bin/<example> && open results/<example>.bmp
 
 ## Results
 
+### Raytracing
+
 | [01 - Basic Raytracing](/examples/01-basic-raytracing.cc) | [02 - Diffuse Reflection](/examples/02-diffuse-reflection.cc) | [03 - Specular Reflection](/examples/03-specular-reflection.cc) |
 |---|---|---|
 | ![Basic Raytracing](/results/01-basic-raytracing.bmp) | ![Diffuse Reflection](/results/02-diffuse-reflection.bmp) | ![Specular Reflection](/results/03-specular-reflection.bmp) |
@@ -37,3 +39,18 @@ So I switched to `float` with 0 to 1 range, which allowed me to represent more v
 | Shadow Acne | Color uint8_t | Color float |
 | --- | --- | --- |
 | ![Shadow Acne](/results/05-shadow-acne.bmp) | ![Color uint8_t](/results/05-old-colors.bmp) | ![Color float](/results/05-reflections.bmp) |
+
+### Extending the Raytracer
+
+Here I've implemented shadow optimization and bounding volume hierarchy tree (BVH) myself as an extra exploration of the topic.
+I've also added a subsampled option to see what effect it has on quality and performance.
+
+| Original | BVH & Shadow Optimizations | Subsampling |
+| --- | --- | --- |
+| ![Original](/results/06-camera.bmp) | ![BVH & Shadow Optimizations](/results/07-optimizations.bmp) | ![Subsampling](/results/07-optimizations-subsampling.bmp) |
+
+Next, based on the existing BVH tree and Object abstraction, I've added Triangles to the scene.
+
+| Other Primitives | Constructive Solid Geometry | Transparency |
+| --- | --- | --- |
+| ![Other Primitives](/results/08-triangles.bmp) | ![Constructive Solid Geometry](/results/09-constructive-solid-geometry.bmp) | ![Transparency](/results/10-transparency.bmp) |
