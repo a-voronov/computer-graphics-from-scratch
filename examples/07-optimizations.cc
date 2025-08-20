@@ -4,7 +4,7 @@
 // Book example: -
 //
 // ```
-// clang++ -std=c++17 examples/07-optimizations.cc -o bin/07-optimizations
+// clang++ -std=c++17 examples/07-optimizations.cc -o bin/07-optimizations -O3 -fno-fast-math
 // bin/07-optimizations
 // ```
 

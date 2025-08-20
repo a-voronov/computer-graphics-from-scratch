@@ -4,7 +4,7 @@
 // Book example: https://github.com/ggambetta/computer-graphics-from-scratch/blob/master/demos/raytracer-03.html
 //
 // ```
-// clang++ -std=c++17 examples/03-specular-reflection.cc -o bin/03-specular-reflection
+// clang++ -std=c++17 examples/03-specular-reflection.cc -o bin/03-specular-reflection -O3 -fno-fast-math
 // bin/03-specular-reflection
 // ```
 

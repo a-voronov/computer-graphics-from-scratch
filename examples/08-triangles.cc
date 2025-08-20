@@ -1,10 +1,10 @@
 // Shadows
 //
-// Book chapter: https://gabrielgambetta.com/computer-graphics-from-scratch/05-extending-the-raytracer.html#optimization
+// Book chapter: https://gabrielgambetta.com/computer-graphics-from-scratch/05-extending-the-raytracer.html#other-primitives
 // Book example: -
 //
 // ```
-// clang++ -std=c++17 examples/08-triangles.cc -o bin/08-triangles
+// clang++ -std=c++17 examples/08-triangles.cc -o bin/08-triangles -O3 -fno-fast-math
 // bin/08-triangles
 // ```
 
@@ -294,7 +294,7 @@ BMPColor bmpColor(const Color& color) {
     };
 }
 
-std::vector<const Object*> objectsPointerView(const vector<unique_ptr<Object>>& objects) {
+vector<const Object*> objectsPointerView(const vector<unique_ptr<Object>>& objects) {
     vector<const Object*> view;
     view.reserve(objects.size());
     for (const auto& object : objects) {

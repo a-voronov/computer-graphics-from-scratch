@@ -4,7 +4,7 @@
 // Book example: https://github.com/ggambetta/computer-graphics-from-scratch/blob/master/demos/raytracer-01.html
 //
 // ```
-// clang++ -std=c++17 examples/01-basic-raytracing.cc -o bin/01-basic-raytracing
+// clang++ -std=c++17 examples/01-basic-raytracing.cc -o bin/01-basic-raytracing -O3 -fno-fast-math
 // bin/01-basic-raytracing
 // ```
 

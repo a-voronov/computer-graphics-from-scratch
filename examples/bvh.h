@@ -145,6 +145,10 @@ struct HitInfo {
 
 // MARK: - Bounding Volume Hierarchy Tree
 
+// This implementation is mostly for demo purposes and own exploration,
+// a better explanation of how to build a BVH tree can be found in the series of articles here:
+// https://jacco.ompf2.com/2022/04/13/how-to-build-a-bvh-part-1-basics/
+
 struct BVHNode {
     AABB bounds;
     unique_ptr<BVHNode> left = nullptr;
