@@ -61,6 +61,10 @@ struct Vec3 {
     static Vec3 max(const Vec3& lhs, const Vec3& rhs) {
         return Vec3{std::max(lhs.x, rhs.x), std::max(lhs.y, rhs.y), std::max(lhs.z, rhs.z)};
     }
+
+    static Vec3 constant(float value) {
+        return Vec3{value, value, value};
+    }
 };
 
 const Vec3::Axis VEC3AXES[3] = {Vec3::Axis::x, Vec3::Axis::y, Vec3::Axis::z};
@@ -80,6 +84,10 @@ struct Ray {
 
 struct AABB {
     Vec3 min, max;
+
+    Vec3 centroid() const {
+        return (min + max) * 0.5f;
+    }
 
     void expand(const AABB& other) {
         min = Vec3::min(min, other.min);
@@ -115,18 +123,36 @@ struct AABB {
         }
         return true;
     }
+
+    bool isValid() const {
+        return min.x <= max.x
+            && min.y <= max.y
+            && min.z <= max.z;
+    }
+
+    static AABB invalid() {
+        return AABB{
+            .min = Vec3::constant(INFINITY),
+            .max = Vec3::constant(-INFINITY)
+        };
+    }
 };
 
-// MARK: - Object and related
-
-struct Color {
-    float red, green, blue;
-};
+// MARK: - Shape + Hit
 
 struct ShapeHit {
     Vec3 point;
     Vec3 normal;
     float t;
+
+    bool isEnter(const Ray& ray) const {
+        // entering if normal is facing against ray's direction
+        return normal.dot(ray.direction) < 0.0f;
+    }
+
+    void flipNormal() {
+        normal = normal * -1;
+    }
 };
 
 struct Shape {
@@ -136,11 +162,21 @@ struct Shape {
     virtual optional<ShapeHit> intersect(const Ray& ray, float t_min, float t_max) const = 0;
 };
 
+struct SolidShape : Shape {};
+
+// MARK: - Color & Material
+
+struct Color {
+    float red, green, blue;
+};
+
 struct Material {
     float specular;
     float reflective;
     Color color;
 };
+
+// MARK: - Primitive + Hit
 
 struct Primitive;
 
@@ -156,7 +192,7 @@ struct Primitive {
     shared_ptr<Shape> shape;
     function<const Material&(const ShapeHit&)> material;
 
-    Primitive(std::shared_ptr<Shape> shape, function<const Material&(const ShapeHit&)> material)
+    Primitive(shared_ptr<Shape> shape, function<const Material&(const ShapeHit&)> material)
         : shape(std::move(shape)), material(std::move(material)) {}
 
     AABB bounds() const {
@@ -188,7 +224,7 @@ struct BVHNode {
     // only in a leaf
     vector<const Primitive *> objects;
 
-    static unique_ptr<BVHNode> build(vector<const Primitive *> objects, int max_leaf_size = 2, int depth = 0) {
+    static unique_ptr<BVHNode> build(vector<const Primitive *> objects, int max_leaf_size = 2, int depth = 0, int max_depth = 8) {
         auto node = make_unique<BVHNode>();
 
         for (const Primitive *obj : objects) {
@@ -196,7 +232,7 @@ struct BVHNode {
         }
 
         // leaf node if small enough
-        if (objects.size() <= max_leaf_size) {
+        if (objects.size() <= max_leaf_size || depth >= max_depth) {
             node->objects = std::move(objects);
             return node;
         }
