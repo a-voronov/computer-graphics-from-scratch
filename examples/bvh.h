@@ -156,7 +156,7 @@ struct BVHNode {
     // only in a leaf
     vector<const Object *> objects;
 
-    static unique_ptr<BVHNode> build(vector<const Object *> objects, int max_leaf_size = 2, int depth = 0) {
+    static unique_ptr<BVHNode> build(vector<const Object *> objects, int max_leaf_size = 2, int depth = 0, int max_depth = 8) {
         auto node = make_unique<BVHNode>();
 
         for (const Object *obj : objects) {
@@ -164,7 +164,7 @@ struct BVHNode {
         }
 
         // leaf node if small enough
-        if (objects.size() <= max_leaf_size) {
+        if (objects.size() <= max_leaf_size || depth >= max_depth) {
             node->objects = std::move(objects);
             return node;
         }
