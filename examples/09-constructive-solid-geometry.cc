@@ -15,6 +15,10 @@
 const float EPSILON = 0.001;
 const bool SUBSAMPLING = false;
 
+bool tInRange(float t, float t_min, float t_max) {
+    return t > t_min && t <= t_max;
+}
+
 // MARK: - Sphere
 
 struct Sphere : SolidShape {
@@ -54,7 +58,7 @@ struct Sphere : SolidShape {
             std::swap(t0, t1);
         }
 
-        if (Sphere::tInRange(t0, t_min, t_max)) {
+        if (tInRange(t0, t_min, t_max)) {
             Vec3 point_enter = ray.at(t0);
             return ShapeHit{
                 .point = point_enter,
@@ -62,7 +66,7 @@ struct Sphere : SolidShape {
                 .t = t0
             };
         }
-        if (Sphere::tInRange(t1, t_min, t_max)) {
+        if (tInRange(t1, t_min, t_max)) {
             Vec3 point_exit = ray.at(t1);
             return ShapeHit{
                 .point = point_exit,
@@ -71,10 +75,6 @@ struct Sphere : SolidShape {
             };
         }
         return nullopt;
-    }
-private:
-    static bool tInRange(float t, float t_min, float t_max) {
-        return t > t_min && t <= t_max;
     }
 };
 
@@ -191,72 +191,70 @@ public:
     // L - R ───┼███████████┼────┼───────────┼───
     //
     optional<ShapeHit> intersect(const Ray& ray, float t_min, float t_max) const override {
-        const float TIE = 0.0001;
-        // get the first events from each child starting at t_min
-        auto l_next = left->intersect(ray, t_min, t_max);
-        auto r_next = right->intersect(ray, t_min, t_max);
-        // if the first event we can see is an EXIT, we probably start inside that child at t_min
+        // implementing csg intersection using event-walking (events = hits)
+        // by looping through hits and moving current min_t there everytime we have a hit,
+        // this way we don't overwhelm `intersect` function with various number of returned hits
+        // (i.e. sphere has two hits, while complex csg might have more than two)
+
+        // current_t will serve as a cursor to aid in our event walking, and we start at t_min
+        float current_t = t_min;
+        // get the first events from each child
+        auto l_next = left->intersect(ray, current_t, t_max);
+        auto r_next = right->intersect(ray, current_t, t_max);
+        // if the first event we can see is an EXIT, we probably start inside that child
         bool in_l = l_next && !l_next->isEnter(ray);
         bool in_r = r_next && !r_next->isEnter(ray);
         bool in_set = CSGShape::truth(operation, in_l, in_r);
-        const bool started_inside = in_set;
-        float current_t = t_min;
 
-        // TODO: go again through this function, leave better comments and add potential improvements
         while (true) {
             // no hits for neither shape
             if (!l_next && !r_next) {
                 return nullopt;
             }
-            // choose nearer event
+            // choose nearest event
             bool from_left;
             ShapeHit hit;
             // if ray is either going through only L shape, or L is in front of R -> we pick L, otherwise -> R
-            if (l_next && (!r_next || l_next->t <= r_next->t - TIE)) {
+            if (l_next && (!r_next || l_next->t <= r_next->t - EPSILON)) {
                 hit = *l_next;
                 from_left = true;
             } else {
                 hit = *r_next;
                 from_left = false;
             }
-            // update inside flags for the child that produced the event
+            // now after crossing the hit.t boundary, we update the child's state whether we're inside the shape or outside
             bool is_enter = hit.isEnter(ray);
             if (from_left) {
                 in_l = is_enter;
             } else {
                 in_r = is_enter;
             }
-            bool new_in_set = truth(operation, in_l, in_r);
-
+            bool new_in_set = CSGShape::truth(operation, in_l, in_r);
+            // here we return a matching hit if we're entering a set (toggling from false -> true)
             if (!in_set && new_in_set) {
-                // for left \ rigth, if visibility came from the RIGHT child's EXIT, flip the normal
-                if (operation == CSGOperation::DIFFERENCE && !from_left && !is_enter) {
-                    // right-exit boundary becomes outward for left\right
+                // for L - R, if visibility came from the RIGHT child's EXIT, flip the normal
+                // (imaging an apple bite where the inside of the bite was formed by another sphere)
+                if (operation == CSGOperation::DIFFERENCE && !from_left) {
                     hit.flipNormal();
                 }
                 // making sure hit is within [t_min, t_max] range
-                if (hit.t > t_min && hit.t <= t_max) {
+                if (tInRange(hit.t, t_min, t_max)) {
                     return hit;
                 }
                 return nullopt;
             }
-            // advance
-            in_set = new_in_set;
+            // advance the cursor and our in_set state
             current_t = hit.t;
-            // only refill the side we consumed, leave the other side cached (we might use it on the next iteration)
+            in_set = new_in_set;
+            // only refill the side we consumed, keep the other side cached for the next loop iteration,
+            // using epsilon to avoid floating point issues
             float next_t_min = std::min(current_t + EPSILON, t_max);
             if (from_left) {
                 l_next.reset();
                 l_next = left->intersect(ray, next_t_min, t_max);
-                // if (r_next && r_next->t <= current_t + TIE) {
-                //     r_next = right->intersect(ray, next_t_min, t_max);
-                // }
             } else {
                 r_next.reset();
                 r_next = right->intersect(ray, next_t_min, t_max);
-                // if (l_next && l_next->t <= current_t + TIE) {
-                //     l_next = left->intersect(ray, next_t_min, t_max);
-                // }
             }
         }
     }
@@ -334,7 +332,6 @@ struct Camera {
 struct Scene {
     const float viewport_size = 1;
     const float projection_plane_z = 1;
-    Vec3 camera_position;
     Color background_color;
     vector<Light> lights;
     vector<unique_ptr<Primitive>> objects;
@@ -398,7 +395,7 @@ Color operator+(const Color& lhs, const Color& rhs) {
 // MARK: - Raytracing
 
 Vec3 reflectRay(const Vec3& ray, const Vec3& normal) {
-    return normal * 2 * normal.dot(ray) - ray;
+    return normal * 2.0f * normal.dot(ray) - ray;
 }
 
 float computeLighting(const Vec3& point, const Vec3& normal, const Vec3& view, float specular, const Scene& scene) {
@@ -506,7 +503,6 @@ int main() {
     Scene scene = {
         .viewport_size = 1,
         .projection_plane_z = 1,
-        .camera_position = {0, 0, 0},
         .background_color = {0, 0, 0},
         .lights = {
             Light{.type = LightType::AMBIENT, .intensity = 0.2},
