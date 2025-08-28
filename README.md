@@ -49,7 +49,7 @@ I've also added a subsampled option to see what effect it has on quality and per
 | --- | --- | --- |
 | ![Original](/results/06-camera.bmp) | ![BVH & Shadow Optimizations](/results/07-optimizations.bmp) | ![Subsampling](/results/07-optimizations-subsampling.bmp) |
 
-Next, based on the existing BVH tree and Object abstraction, I've added Triangles to the scene.
+Next, based on the existing BVH tree and Object abstraction, I've added Triangles to the scene. Then I've spent quite some time to get CSG right - had to rewrite intersect method few times and ended up with the simple event-walking which suits any amount of enter-exit object pairs. Reflection was a bit easier but not less fun - it looks pretty cool when you see the result of CSG+Transparency combo as a magnifying glass on top of the pyramid. And blending reflection with refraction colors showed that I had to increase raytracing recursion depth to see the refracted reflection of the maginfying glass :D
 
 | Other Primitives | Constructive Solid Geometry | Transparency |
 | --- | --- | --- |
