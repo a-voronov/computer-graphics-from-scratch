@@ -1,0 +1,2 @@
+# mark the directory as source files to satisfy GH linguist https://github.com/github-linguist/linguist/blob/main/docs/overrides.md
+examples/** -linguist-documentation 
